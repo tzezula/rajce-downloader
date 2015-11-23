@@ -1,6 +1,7 @@
 var http = require('http');
 var fs = require('fs');
-var pth = require('path');
+var pathUtils = require('path');
+var urlUtils = require('url');
 var html = require('cheerio');
 var js = require('esprima');
 
@@ -77,20 +78,8 @@ function parseHTML(page) {
 	};
 }
 
-function parseURL(url) {
-	var URL_RE = /^http(s)?:\/\/(([\w.])+)(:\d+)?(\/.*)$/;
-	var res = URL_RE.exec(url);
-	return res ?
-	{
-		hostname: res[2],
-		port: res[4] ? parseInt(res[4]) : 80,
-		path: res[5]
-	}:
-	null;
-}
-
 function createImagePath(base, fileName) {
-	return base + "images/" + fileName; 
+	return base.resolveObject("images/").resolveObject(fileName);
 }
 
 function download(dest, data, err, success) {
@@ -99,18 +88,19 @@ function download(dest, data, err, success) {
 		keepAliveMsecs: 10000,
 		maxSockets: 1,
 	});
-	var storage = parseURL(data.storageURL);
+	var storage = urlUtils.parse(data.storageURL);
 	data.fileNames.forEach(function(fileName) {
+		var imageUrl = createImagePath(storage, fileName);
 		var options = {
-			hostname: storage.hostname,
-  			port: storage.port,
-  			path: createImagePath(storage.path,fileName),
+			hostname: imageUrl.hostname,
+            port: imageUrl.port ? parseInt(imageUrl.port) : 80,
+            path: imageUrl.path,
   			method: 'GET',
   			agent: agent
 		};
 		var req = http.request (options, function(res) {
 			if (res.statusCode == 200) {
-				var destFile = pth.resolve(dest,fileName);
+				var destFile = pathUtils.resolve(dest,fileName);
 		 		var stream = fs.createWriteStream(destFile);
 		 		res.on('data', function(data) {
 		 			stream.write(data);
@@ -118,20 +108,20 @@ function download(dest, data, err, success) {
 		 		res.on('end', function() {
 		 			stream.close();
 					success && success({
-						url: createImagePath(data.storageURL,fileName),
+						url: imageUrl.format(),
 						file: destFile
 					});
 		 		});
 		 	} else {
 				 err && err({
-					 url: createImagePath(data.storageURL,fileName),
+					 url: imageUrl.format(),
 					 reason: res.statusCode
 				 });
 			}
 		});
 		req.on('error', function(e) {
 			err && err({
-					url: createImagePath(storage.path,fileName),
+					url: imageUrl.format(),
 					reason: e.message
 				});
 		});
@@ -144,10 +134,10 @@ function usage() {
 }
 
 function mkdirs(folder) {
-	var pathElements = folder.split(pth.sep);
+	var pathElements = folder.split(pathUtils.sep);
 	var path = "";
 	for (var i = 0; i< pathElements.length; i++) {
-		path = path.concat(pathElements[i]).concat(pth.sep);
+		path = path.concat(pathElements[i]).concat(pathUtils.sep);
 		if (!fs.existsSync(path)) {
 			fs.mkdirSync(path);
 		}
