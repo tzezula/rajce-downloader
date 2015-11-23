@@ -1,0 +1,15 @@
+{
+ "name": "RajiceDownloader",
+ "description": "Simple image downloader from www.rajce.idnes.cz",
+ "version": "1.0.0",
+ "license": "GPL-3.0",
+ "repository": {
+    "type": "git",
+    "url": "https://github.com/tzezula/rajice-downloader"
+  },
+ "dependencies": {
+    "http": "*",
+    "cheerio":"*",
+    "esprima":"*"
+  }
+}
